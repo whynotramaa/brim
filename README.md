@@ -1,5 +1,5 @@
 
-![#file:banner.png](#file:banner.png)
+![BRIM BANNER](public/banner.png)
 
 # Brim — Terminal-native AI Coding Assistant (BYOK)
 
