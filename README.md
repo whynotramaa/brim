@@ -52,7 +52,7 @@ Brim is a browser-based IDE featuring real-time collaborative code editing, AI-p
 3. Set up environment variables:
 
    ```bash
-   cp .env.example .env.local
+   .env.local
    ```
 
 4. Configure your `.env.local` with the required keys:
@@ -65,7 +65,7 @@ Brim is a browser-based IDE featuring real-time collaborative code editing, AI-p
 
    # AI Provider (choose one)
    ANTHROPIC_API_KEY=             # Preferred - Claude Sonnet 4
-   GOOGLE_GENERATIVE_AI_API_KEY=  # Free alternative - Gemini 2.0 Flash
+   OPENCODE_ZEN_API_KEY=          # Free alternative - Deepseek v4 Flash
 
    # Firecrawl (optional)
    FIRECRAWL_API_KEY=
@@ -99,7 +99,7 @@ src/
 │   ├── api/               # API routes
 │   │   ├── messages/      # Conversation API
 │   │   ├── suggestion/    # AI suggestions
-│   │   └── quick-edit/    # Cmd+K editing
+│   │   └── quick-edit/    # Ctrl + K editing
 │   └── projects/          # Project pages
 ├── components/            # Shared components
 │   ├── ui/               # shadcn/ui components

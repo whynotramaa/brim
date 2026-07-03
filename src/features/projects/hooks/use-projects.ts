@@ -19,30 +19,6 @@ export const useProjectsPartial = (limit: number) => {
   });
 };
 
-export const useCreateProject = () => {
-  return useMutation(api.projects.create).withOptimisticUpdate(
-    (localStore, args) => {
-      const existingProjects = localStore.getQuery(api.projects.get);
-
-      if (existingProjects !== undefined) {
-        const now = Date.now();
-        const newProject = {
-          _id: crypto.randomUUID() as Id<"projects">,
-          _creationTime: now,
-          name: args.name,
-          ownerId: "anonymous",
-          updatedAt: now,
-        };
-
-        localStore.setQuery(api.projects.get, {}, [
-          newProject,
-          ...existingProjects,
-        ]);
-      }
-    }
-  )
-};
-
 export const useRenameProject = () => {
   return useMutation(api.projects.rename).withOptimisticUpdate(
     (localStore, args) => {

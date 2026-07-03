@@ -41,6 +41,7 @@ export const zen = createOpenAICompatible({
  * low or the visible answer never arrives (see the title budget in
  * process-message.ts). Once billing is added the ideal paid upgrades are inline.
  */
+
 export const MODEL_IDS = {
   // Inline autocomplete — latency-critical. Paid upgrade: "deepseek-v4-flash".
   suggestion: "deepseek-v4-flash-free",
@@ -53,4 +54,3 @@ export const MODEL_IDS = {
 // Vercel AI SDK models (used by generateText/streamText in route handlers).
 export const suggestionModel = () => zen(MODEL_IDS.suggestion);
 export const quickEditModel = () => zen(MODEL_IDS.quickEdit);
-export const demoModel = () => zen(MODEL_IDS.suggestion);

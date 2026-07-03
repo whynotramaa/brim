@@ -31,23 +31,6 @@ export const updateSettings = mutation({
   },
 });
 
-export const create = mutation({
-  args: {
-    name: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
-
-    const projectId = await ctx.db.insert("projects", {
-      name: args.name,
-      ownerId: identity.subject,
-      updatedAt: Date.now(),
-    });
-
-    return projectId;
-  },
-});
-
 export const getPartial = query({
   args: {
     limit: v.number(),

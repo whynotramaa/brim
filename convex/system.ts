@@ -138,23 +138,6 @@ export const getRecentMessages = query({
   },
 });
 
-// Used for Agent to update conversation title
-export const updateConversationTitle = mutation({
-  args: {
-    internalKey: v.string(),
-    conversationId: v.id("conversations"),
-    title: v.string(),
-  },
-   handler: async (ctx, args) => {
-    validateInternalKey(args.internalKey);
-
-    await ctx.db.patch(args.conversationId, {
-      title: args.title,
-      updatedAt: Date.now(),
-    });
-   },
-});
-
 // Used for Agent "ListFiles" tool
 export const getProjectFiles = query({
   args: {
