@@ -51,7 +51,10 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
         clientId: process.env.GITHUB_CLIENT_ID as string,
         clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
         // `repo` is needed so we can push exported projects back to GitHub.
-        scope: ["repo"],
+        // `read:user`/`user:email` are Better Auth's defaults — we must keep
+        // them explicitly, otherwise the callback can't read the user's
+        // (often private) email and fails with `unable_to_get_user_info`.
+        scope: ["repo", "read:user", "user:email"],
       },
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID as string,

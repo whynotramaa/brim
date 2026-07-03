@@ -32,10 +32,12 @@ export const zen = createOpenAICompatible({
  * Model id per task. Must be zen `/chat/completions` models (see the note above).
  *
  * Defaults use zen's free tier (no payment method required):
- *   - `deepseek-v4-flash-free` — fast, strong at code; the default for most tasks.
- *   - `big-pickle` — a more capable "stealth" model, used for the coding agent.
+ *   - `deepseek-v4-flash-free` — fast, strong at code; the default for every task.
+ *     It also emits well-formed tool-call JSON, which the coding agent needs:
+ *     the previous `big-pickle` model produced malformed JSON on large file
+ *     writes, breaking agent-kit's tool-argument parser.
  *
- * NOTE: both are reasoning models — they spend tokens on hidden reasoning before
+ * NOTE: this is a reasoning model — it spends tokens on hidden reasoning before
  * the visible answer, which lands in a separate field (so `generateText().text`
  * still returns clean output). Because of that, never cap their output tokens too
  * low or the visible answer never arrives (see the title budget in
@@ -47,8 +49,8 @@ export const MODEL_IDS = {
   suggestion: "deepseek-v4-flash-free",
   // Quick inline edits — fast, good at code. Paid upgrade: "deepseek-v4-flash".
   quickEdit: "deepseek-v4-flash-free",
-  // Main coding agent with file tools — needs code + tool use. Paid: "kimi-k2.7-code".
-  agent: "big-pickle",
+  // Main coding agent with file tools — needs reliable tool-call JSON. Paid: "kimi-k2.7-code".
+  agent: "deepseek-v4-flash-free",
 } as const;
 
 // Vercel AI SDK models (used by generateText/streamText in route handlers).
