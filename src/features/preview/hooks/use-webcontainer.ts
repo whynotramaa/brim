@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { WebContainer } from "@webcontainer/api";
+import { WebContainer, type WebContainerProcess } from "@webcontainer/api";
+import type { Terminal } from "@xterm/xterm";
 
-import { 
+import {
   buildFileTree,
   getFilePath
 } from "@/features/preview/utils/file-tree";
 import { useFiles } from "@/features/projects/hooks/use-files";
 
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Doc, Id } from "../../../../convex/_generated/dataModel";
 
 // Singleton WebContainer instance
 let webcontainerInstance: WebContainer | null = null;
@@ -35,6 +35,37 @@ const teardownWebContainer = () => {
   bootPromise = null;
 };
 
+/**
+ * Find the directory that holds the project's `package.json` so install/dev run
+ * in the right place. Returns:
+ *   - ""        → package.json is at the project root
+ *   - "app/web" → package.json lives in a subdirectory (monorepo-style)
+ *   - null      → no package.json anywhere
+ * When multiple exist, the shallowest one wins.
+ */
+const findPackageJsonDir = (files: Doc<"files">[]): string | null => {
+  const filesMap = new Map(files.map((f) => [f._id, f]));
+  const packageJsons = files.filter(
+    (f) => f.type === "file" && f.name === "package.json"
+  );
+
+  if (packageJsons.length === 0) return null;
+
+  let bestDir: string | null = null;
+  let bestDepth = Infinity;
+
+  for (const pkg of packageJsons) {
+    const path = getFilePath(pkg, filesMap); // e.g. "package.json" or "web/package.json"
+    const depth = path.split("/").length;
+    if (depth < bestDepth) {
+      bestDepth = depth;
+      bestDir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+    }
+  }
+
+  return bestDir;
+};
+
 interface UseWebContainerProps {
   projectId: Id<"projects">;
   enabled: boolean;
@@ -50,15 +81,27 @@ export const useWebContainer = ({
   settings,
 }: UseWebContainerProps) => {
   const [status, setStatus] = useState<
-    "idle" | "booting" | "installing" | "running" | "error"
+    "idle" | "booting" | "installing" | "starting" | "running" | "error"
   >("idle");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [restartKey, setRestartKey] = useState(0);
-  const [terminalOutput, setTerminalOutput] = useState("");
 
   const containerRef = useRef<WebContainer | null>(null);
   const hasStartedRef = useRef(false);
+
+  // Interactive shell wiring. A jsh shell is spawned first so the terminal is
+  // always usable (even if install fails); install/dev then run as real
+  // processes so status is driven by their exit codes + the server-ready event.
+  const shellProcessRef = useRef<WebContainerProcess | null>(null);
+  const shellInputRef = useRef<WritableStreamDefaultWriter<string> | null>(null);
+  const outputBufferRef = useRef("");
+  const terminalWriteRef = useRef<((data: string) => void) | null>(null);
+
+  const writeToTerminal = useCallback((data: string) => {
+    outputBufferRef.current += data;
+    terminalWriteRef.current?.(data);
+  }, []);
 
   // Fetch files from Convex (auto-updates on changes)
   const files = useFiles(projectId);
@@ -75,11 +118,7 @@ export const useWebContainer = ({
       try {
         setStatus("booting");
         setError(null);
-        setTerminalOutput("");
-
-        const appendOutput = (data: string) => {
-          setTerminalOutput((prev) => prev + data);
-        };
+        outputBufferRef.current = "";
 
         const container = await getWebContainer();
         containerRef.current = container;
@@ -92,42 +131,72 @@ export const useWebContainer = ({
           setStatus("running");
         });
 
-        setStatus("installing");
+        // Where does package.json live? Run everything from there.
+        const packageDir = findPackageJsonDir(files);
+        const cwd = packageDir ? packageDir : undefined;
 
-        // Parse install command (default: npm install)
-        const installCmd = settings?.installCommand || "npm install";
-        const [installBin, ...installArgs] = installCmd.split(" ");
-        appendOutput(`$ ${installCmd}\n`)
-        const installProcess = await container.spawn(installBin, installArgs);
-        installProcess.output.pipeTo(
-          new WritableStream({
-            write(data) {
-              appendOutput(data);
-            },
-          })
+        // ---- Interactive shell first, so the terminal always works ---------
+        const shell = await container.spawn("jsh", {
+          terminal: { cols: 80, rows: 24 },
+          cwd,
+        });
+        shellProcessRef.current = shell;
+        shellInputRef.current = shell.input.getWriter();
+        shell.output.pipeTo(
+          new WritableStream({ write: (data) => writeToTerminal(data) })
         );
-        const installExitCode = await installProcess.exit;
 
-        if (installExitCode !== 0) {
-          throw new Error(
-            `${installCmd} failed with code ${installExitCode}`
+        if (packageDir === null) {
+          writeToTerminal(
+            "\x1b[1;33mNo package.json found in this project.\x1b[0m\r\n" +
+              "Use the terminal above to scaffold or configure your app.\r\n"
           );
+          setStatus("idle");
+          return;
         }
 
-        // Parse dev command (default: npm run dev)
+        // ---- Install dependencies ------------------------------------------
+        const installCmd = settings?.installCommand || "npm install";
+        const [installBin, ...installArgs] = installCmd.split(" ");
+
+        setStatus("installing");
+        writeToTerminal(`\x1b[1;33m$ ${installCmd}\x1b[0m\r\n`);
+
+        const installProcess = await container.spawn(installBin, installArgs, {
+          cwd,
+        });
+        installProcess.output.pipeTo(
+          new WritableStream({ write: (data) => writeToTerminal(data) })
+        );
+
+        const installExitCode = await installProcess.exit;
+        if (installExitCode !== 0) {
+          const message = `${installCmd} failed with exit code ${installExitCode}`;
+          writeToTerminal(`\r\n\x1b[1;31m${message}\x1b[0m\r\n`);
+          setError(message);
+          setStatus("error");
+          // Keep the shell alive so the user can debug.
+          return;
+        }
+
+        // ---- Start the dev server ------------------------------------------
         const devCmd = settings?.devCommand || "npm run dev";
         const [devBin, ...devArgs] = devCmd.split(" ");
-        appendOutput(`\n$ ${devCmd}\n`);
-        const devProcess = await container.spawn(devBin, devArgs);
+
+        setStatus("starting");
+        writeToTerminal(`\r\n\x1b[1;33m$ ${devCmd}\x1b[0m\r\n`);
+
+        const devProcess = await container.spawn(devBin, devArgs, { cwd });
         devProcess.output.pipeTo(
-          new WritableStream({
-            write(data) {
-              appendOutput(data);
-            },
-          })
+          new WritableStream({ write: (data) => writeToTerminal(data) })
         );
+        // Not awaited — the dev server runs until teardown; server-ready flips
+        // status to "running".
       } catch (error) {
-        setError(error instanceof Error ? error.message : "Unknown error");
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        writeToTerminal(`\r\n\x1b[1;31m${message}\x1b[0m\r\n`);
+        setError(message);
         setStatus("error");
       }
     };
@@ -139,6 +208,7 @@ export const useWebContainer = ({
     restartKey,
     settings?.devCommand,
     settings?.installCommand,
+    writeToTerminal,
   ]);
 
   // Sync file changes (hot-reload)
@@ -156,18 +226,47 @@ export const useWebContainer = ({
     }
   }, [files, status]);
 
-  // Reset when disabled
+  // Reset when disabled — syncs external (prop) state into the container
+  // lifecycle; the direct setState on the disable transition is intentional.
   useEffect(() => {
     if (!enabled) {
       hasStartedRef.current = false;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus("idle");
       setPreviewUrl(null);
       setError(null);
     }
   }, [enabled]);
 
+  // Attach an xterm terminal to the running shell. Returns a cleanup function.
+  const bindTerminal = useCallback((terminal: Terminal) => {
+    // Replay any output produced before the terminal mounted.
+    if (outputBufferRef.current) {
+      terminal.write(outputBufferRef.current);
+    }
+
+    terminalWriteRef.current = (data) => terminal.write(data);
+
+    const dataListener = terminal.onData((data) => {
+      shellInputRef.current?.write(data);
+    });
+    const resizeListener = terminal.onResize(({ cols, rows }) => {
+      shellProcessRef.current?.resize({ cols, rows });
+    });
+
+    return () => {
+      terminalWriteRef.current = null;
+      dataListener.dispose();
+      resizeListener.dispose();
+    };
+  }, []);
+
   // Restart the entire WebContainer process
   const restart = useCallback(() => {
+    shellInputRef.current = null;
+    shellProcessRef.current = null;
+    terminalWriteRef.current = null;
+    outputBufferRef.current = "";
     teardownWebContainer();
     containerRef.current = null;
     hasStartedRef.current = false;
@@ -182,6 +281,6 @@ export const useWebContainer = ({
     previewUrl,
     error,
     restart,
-    terminalOutput,
+    bindTerminal,
   };
 };

@@ -10,6 +10,9 @@ export const ThemeToggle = ({ className }: { className?: string }) => {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  // Avoid hydration mismatch: resolvedTheme is only known on the client, so we
+  // gate theme-dependent rendering until after mount.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   const isDark = mounted && resolvedTheme === "dark";

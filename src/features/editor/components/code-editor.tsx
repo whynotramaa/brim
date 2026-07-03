@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef } from "react"
 import { EditorView, keymap } from "@codemirror/view";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { indentWithTab } from "@codemirror/commands";
 import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 
 import { minimap } from "../extensions/minimap";
-import { customTheme } from "../extensions/theme";
+import { ayuDark } from "../extensions/theme";
 import { getLanguageExtension } from "../extensions/language-extension";
 import { customSetup } from "../extensions/custom-setup";
 import { suggestion } from "../extensions/suggestion";
@@ -37,8 +36,7 @@ export const CodeEditor = ({
       doc: initialValue,
       parent: editorRef.current,
       extensions: [
-        oneDark,
-        customTheme,
+        ayuDark,
         customSetup,
         languageExtension,
         suggestion(fileName),

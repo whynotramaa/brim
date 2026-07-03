@@ -28,6 +28,3 @@ Your final response must be a summary of what you accomplished. Include:
 
 Do NOT include intermediate thinking or narration. Only provide the final summary after all work is complete.
 </response_format>`;
-
-export const TITLE_GENERATOR_SYSTEM_PROMPT =
-  "Generate a short, descriptive title (3-6 words) for a conversation based on the user's message. Return ONLY the title, nothing else. No quotes, no punctuation at the end.";

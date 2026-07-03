@@ -1,24 +1,27 @@
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 /**
  * Central AI provider layer for Brim.
  *
- * Everything routes through OpenRouter (major + open-source labs, one key) or
- * opencode-zen (OpenAI-compatible gateway). Swap model ids in `MODEL_IDS` below
- * — they are the single source of truth for which model each task uses.
+ * Everything routes through opencode-zen (https://opencode.ai/zen) — the default
+ * provider. Swap model ids in `MODEL_IDS` below; they are the single source of
+ * truth for which model each task uses.
+ *
+ * We deliberately keep every default on models served from zen's
+ * OpenAI-compatible `/chat/completions` endpoint (DeepSeek / MiniMax / GLM /
+ * Kimi / Grok / free models). That one endpoint is spoken by BOTH consumers:
+ *   - the Vercel AI SDK client below (`zen(...)`), used in route handlers, and
+ *   - @inngest/agent-kit's `openai()` adapter (see process-message.ts), which
+ *     posts to `${ZEN_BASE_URL}/chat/completions`.
+ * Picking an Anthropic/Gemini/OpenAI-Responses model would require a different
+ * SDK package and base URL per model, so avoid those here unless you also wire
+ * up the matching provider.
  */
 
-// Base URLs for OpenAI-compatible clients (also used by @inngest/agent-kit's openai adapter).
-export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+// Base URL for zen's OpenAI-compatible clients (also used by agent-kit's openai adapter).
 export const ZEN_BASE_URL = "https://opencode.ai/zen/v1";
 
-// OpenRouter — https://openrouter.ai (default provider, 300+ models).
-export const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY ?? "",
-});
-
-// opencode-zen — OpenAI-compatible gateway. Use for models routed through zen.
+// opencode-zen — default provider. OpenAI-compatible gateway.
 export const zen = createOpenAICompatible({
   name: "opencode-zen",
   baseURL: ZEN_BASE_URL,
@@ -26,17 +29,28 @@ export const zen = createOpenAICompatible({
 });
 
 /**
- * Model ids per task. Edit freely. OpenRouter model ids look like
- * `vendor/model` (e.g. "anthropic/claude-sonnet-4", "meta-llama/llama-3.3-70b-instruct").
+ * Model id per task. Must be zen `/chat/completions` models (see the note above).
+ *
+ * Defaults use zen's free tier (no payment method required):
+ *   - `deepseek-v4-flash-free` — fast, strong at code; the default for most tasks.
+ *   - `big-pickle` — a more capable "stealth" model, used for the coding agent.
+ *
+ * NOTE: both are reasoning models — they spend tokens on hidden reasoning before
+ * the visible answer, which lands in a separate field (so `generateText().text`
+ * still returns clean output). Because of that, never cap their output tokens too
+ * low or the visible answer never arrives (see the title budget in
+ * process-message.ts). Once billing is added the ideal paid upgrades are inline.
  */
 export const MODEL_IDS = {
-  suggestion: "nvidia/nemotron-3-ultra-550b-a55b:free",
-  quickEdit: "nvidia/nemotron-3-ultra-550b-a55b:free",
-  agent: "nvidia/nemotron-3-ultra-550b-a55b:free",
-  title: "nvidia/nemotron-3-ultra-550b-a55b:free",
+  // Inline autocomplete — latency-critical. Paid upgrade: "deepseek-v4-flash".
+  suggestion: "deepseek-v4-flash-free",
+  // Quick inline edits — fast, good at code. Paid upgrade: "deepseek-v4-flash".
+  quickEdit: "deepseek-v4-flash-free",
+  // Main coding agent with file tools — needs code + tool use. Paid: "kimi-k2.7-code".
+  agent: "big-pickle",
 } as const;
 
 // Vercel AI SDK models (used by generateText/streamText in route handlers).
-export const suggestionModel = () => openrouter.chat(MODEL_IDS.suggestion);
-export const quickEditModel = () => openrouter.chat(MODEL_IDS.quickEdit);
-export const demoModel = () => openrouter.chat(MODEL_IDS.suggestion);
+export const suggestionModel = () => zen(MODEL_IDS.suggestion);
+export const quickEditModel = () => zen(MODEL_IDS.quickEdit);
+export const demoModel = () => zen(MODEL_IDS.suggestion);

@@ -17,6 +17,7 @@ import { api } from "../../../../../convex/_generated/api";
 
 const requestSchema = z.object({
   prompt: z.string().min(1),
+  name: z.string().trim().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -36,22 +37,25 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { prompt } = requestSchema.parse(body);
+  const { prompt, name } = requestSchema.parse(body);
 
-  // Generate a random project name
-  const projectName = uniqueNamesGenerator({
-    dictionaries: [adjectives, animals, colors],
-    separator: "-",
-    length: 3,
-  });
+  // Use the user-provided name, falling back to a random one.
+  const projectName =
+    name ??
+    uniqueNamesGenerator({
+      dictionaries: [adjectives, animals, colors],
+      separator: "-",
+      length: 3,
+    });
 
-  // Create project and conversation together
+  // Create project and conversation together. Title the conversation with the
+  // project name (users name their own projects now — no AI title generation).
   const { projectId, conversationId } = await convex.mutation(
     api.system.createProjectWithConversation,
     {
       internalKey,
       projectName,
-      conversationTitle: DEFAULT_CONVERSATION_TITLE,
+      conversationTitle: name ?? DEFAULT_CONVERSATION_TITLE,
       ownerId: userId,
     },
   );

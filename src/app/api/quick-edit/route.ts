@@ -1,18 +1,10 @@
-import { z } from "zod";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { NextResponse } from "next/server";
 
 import { requireUserId } from "@/lib/auth-server";
 import { quickEditModel } from "@/lib/ai/models";
 import { firecrawl } from "@/lib/firecrawl";
-
-const quickEditSchema = z.object({
-  editedCode: z
-    .string()
-    .describe(
-      "The edited version of the selected code based on the instruction"
-    ),
-});
+import { stripCodeFences } from "@/lib/utils";
 
 const URL_REGEX = /https?:\/\/[^\s)>\]]+/g;
 
@@ -34,7 +26,7 @@ const QUICK_EDIT_PROMPT = `You are a code editing assistant. Edit the selected c
 </instruction>
 
 <instructions>
-Return ONLY the edited version of the selected code.
+Return ONLY the edited version of the selected code — no Markdown code fences, no backticks, no explanation.
 Maintain the same indentation level as the original.
 Do not include any explanations or comments unless requested.
 If the instruction is unclear or cannot be applied, return the original code unchanged.
@@ -101,13 +93,12 @@ export async function POST(request: Request) {
       .replace("{instruction}", instruction)
       .replace("{documentation}", documentationContext);
 
-    const { output } = await generateText({
+    const { text } = await generateText({
       model: quickEditModel(),
-      output: Output.object({ schema: quickEditSchema }),
       prompt,
     });
 
-    return NextResponse.json({ editedCode: output.editedCode });
+    return NextResponse.json({ editedCode: stripCodeFences(text) });
   } catch (error) {
     console.error("Edit error:", error);
     return NextResponse.json(

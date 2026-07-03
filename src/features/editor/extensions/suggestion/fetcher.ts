@@ -31,7 +31,10 @@ export const fetcher = async (
       .post("/api/suggestion", {
         json: validatedPayload,
         signal,
-        timeout: 10_000,
+        // The free zen models are reasoning models and can take 10-30s per
+        // completion, so allow a generous window before giving up. (Add a
+        // payment method + a fast non-reasoning model for snappy suggestions.)
+        timeout: 30_000,
         retry: 0,
       })
       .json<SuggestionResponse>();
@@ -40,7 +43,12 @@ export const fetcher = async (
 
     return validatedResponse.suggestion || null;
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    // Aborts (new keystroke) and timeouts (slow free model) are expected and
+    // should stay silent — otherwise autocomplete spams error toasts.
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError")
+    ) {
       return null;
     }
     toast.error("Failed to fetch AI completion");

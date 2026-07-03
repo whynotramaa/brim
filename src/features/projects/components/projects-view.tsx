@@ -4,7 +4,6 @@ import {
   ArrowUpRightIcon,
   CodeXmlIcon,
   SearchIcon,
-  SparklesIcon,
 } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 import { useEffect, useState } from "react";

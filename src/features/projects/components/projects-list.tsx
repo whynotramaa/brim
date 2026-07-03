@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Kbd } from "@/components/ui/kbd";
 
 import { Doc } from "../../../../convex/_generated/dataModel";
 

@@ -7,22 +7,19 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 
 interface PreviewTerminalProps {
-  output: string;
+  // Attaches the terminal to the WebContainer shell; returns a cleanup fn.
+  bindTerminal: (terminal: Terminal) => () => void;
 }
 
-export const PreviewTerminal = ({ output }: PreviewTerminalProps) => {
+export const PreviewTerminal = ({ bindTerminal }: PreviewTerminalProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const terminalRef = useRef<Terminal | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const lastLengthRef = useRef(0);
 
-  // Initialize terminal
   useEffect(() => {
-    if (!containerRef.current || terminalRef.current) return;
+    if (!containerRef.current) return;
 
     const terminal = new Terminal({
       convertEol: true,
-      disableStdin: true,
+      cursorBlink: true,
       fontSize: 12,
       fontFamily: "monospace",
       theme: { background: "#1f2228" },
@@ -31,46 +28,22 @@ export const PreviewTerminal = ({ output }: PreviewTerminalProps) => {
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(containerRef.current);
-
-    terminalRef.current = terminal;
-    fitAddonRef.current = fitAddon;
-
-    // Write existing output on mount
-    if (output) {
-      terminal.write(output);
-      lastLengthRef.current = output.length;
-    }
-
     requestAnimationFrame(() => fitAddon.fit());
+
+    // Connect the terminal to the shell (input + output). `bindTerminal` is a
+    // stable useCallback, so this effect only ever runs once on mount.
+    const unbind = bindTerminal(terminal);
 
     const resizeObserver = new ResizeObserver(() => fitAddon.fit());
     resizeObserver.observe(containerRef.current);
 
     return () => {
       resizeObserver.disconnect();
+      unbind();
       terminal.dispose();
-      terminalRef.current = null;
-      fitAddonRef.current = null;
     };
-    // "output" does not need to be a dependency since it is not intended
-    // to update anything, just used on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Write output
-  useEffect(() => {
-    if (!terminalRef.current) return;
-
-    if (output.length < lastLengthRef.current) {
-      terminalRef.current.clear();
-      lastLengthRef.current = 0;
-    }
-
-    const newData = output.slice(lastLengthRef.current);
-    if (newData) {
-      terminalRef.current.write(newData);
-      lastLengthRef.current = output.length;
-    }
-  }, [output]);
 
   return (
     <div

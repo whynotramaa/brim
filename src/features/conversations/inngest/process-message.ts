@@ -1,16 +1,12 @@
 import { createAgent, openai, createNetwork } from '@inngest/agent-kit';
 
 import { inngest } from "@/inngest/client";
-import { MODEL_IDS, OPENROUTER_BASE_URL } from "@/lib/ai/models";
+import { MODEL_IDS, ZEN_BASE_URL } from "@/lib/ai/models";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { NonRetriableError } from "inngest";
 import { convex } from "@/lib/convex-client";
 import { api } from "../../../../convex/_generated/api";
-import { 
-  CODING_AGENT_SYSTEM_PROMPT, 
-  TITLE_GENERATOR_SYSTEM_PROMPT
-} from "./constants";
-import { DEFAULT_CONVERSATION_TITLE } from "../constants";
+import { CODING_AGENT_SYSTEM_PROMPT } from "./constants";
 import { createReadFilesTool } from './tools/read-files';
 import { createListFilesTool } from './tools/list-files';
 import { createUpdateFileTool } from './tools/update-file';
@@ -73,7 +69,7 @@ export const processMessage = inngest.createFunction(
     // TODO: Check if this is needed
     await step.sleep("wait-for-db-sync", "1s");
 
-    // Get conversation for title generation check
+    // Validate the conversation still exists before doing any work.
     const conversation = await step.run("get-conversation", async () => {
       return await convex.query(api.system.getConversationById, {
         internalKey,
@@ -110,49 +106,6 @@ export const processMessage = inngest.createFunction(
       systemPrompt += `\n\n## Previous Conversation (for context only - do NOT repeat these responses):\n${historyText}\n\n## Current Request:\nRespond ONLY to the user's new message below. Do not repeat or reference your previous responses.`;
     }
 
-    // Generate conversation title if it's still the default
-    const shouldGenerateTitle =
-      conversation.title === DEFAULT_CONVERSATION_TITLE;
-
-    if (shouldGenerateTitle) {
-       const titleAgent = createAgent({
-        name: "title-generator",
-        system: TITLE_GENERATOR_SYSTEM_PROMPT,
-        model: openai({
-          model: MODEL_IDS.title,
-          apiKey: process.env.OPENROUTER_API_KEY,
-          baseUrl: OPENROUTER_BASE_URL,
-          defaultParameters: { temperature: 0, max_completion_tokens: 50 },
-        }),
-       });
-
-       const { output } = await titleAgent.run(message, { step });
-
-       const textMessage = output.find(
-        (m) => m.type === "text" && m.role === "assistant"
-      );
-
-      if (textMessage?.type === "text") {
-         const title = 
-          typeof textMessage.content === "string"
-            ? textMessage.content.trim()
-            : textMessage.content
-              .map((c) => c.text)
-              .join("")
-              .trim();
-
-        if (title) {
-          await step.run("update-conversation-title", async () => {
-            await convex.mutation(api.system.updateConversationTitle, {
-              internalKey,
-              conversationId,
-              title,
-            });
-          });
-        }
-      }
-    }
-
     // Create the coding agent with file tools
     const codingAgent = createAgent({
       name: "brim",
@@ -160,8 +113,8 @@ export const processMessage = inngest.createFunction(
       system: systemPrompt,
        model: openai({
         model: MODEL_IDS.agent,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseUrl: OPENROUTER_BASE_URL,
+        apiKey: process.env.OPENCODE_ZEN_API_KEY,
+        baseUrl: ZEN_BASE_URL,
         defaultParameters: { temperature: 0.3, max_completion_tokens: 16000 }
        }),
        tools: [
