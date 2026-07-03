@@ -10,12 +10,34 @@ import authConfig from "./auth.config";
 
 const siteUrl = process.env.SITE_URL;
 
+// In dev the app is often reached via a host that isn't exactly `SITE_URL`
+// (e.g. 127.0.0.1 instead of localhost, or a fallback port like 3001).
+const isLocalDev =
+  !siteUrl || siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1");
+
+/**
+ * Origins allowed to initiate auth requests. Better Auth otherwise defaults to
+ * just `baseURL`, so any request whose `Origin` header doesn't match it exactly
+ * is rejected with `INVALID_ORIGIN` ("Invalid origin"). We trust:
+ *   - the canonical app origin (`SITE_URL`),
+ *   - extra origins for preview/prod deploys via `TRUSTED_ORIGINS` (comma-separated),
+ *   - localhost / 127.0.0.1 on any port while developing locally.
+ */
+const trustedOrigins = [
+  siteUrl,
+  ...(process.env.TRUSTED_ORIGINS?.split(",") ?? []),
+  ...(isLocalDev ? ["http://localhost:*", "http://127.0.0.1:*"] : []),
+]
+  .map((origin) => origin?.trim())
+  .filter((origin): origin is string => Boolean(origin));
+
 // Better Auth component client (hosted install — uses the component's own schema).
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
 export const createAuth = (ctx: GenericCtx<DataModel>) =>
   betterAuth({
     baseURL: siteUrl,
+    trustedOrigins,
     secret: process.env.BETTER_AUTH_SECRET,
     database: authComponent.adapter(ctx),
     account: {
