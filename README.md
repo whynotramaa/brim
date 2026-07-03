@@ -1,14 +1,13 @@
 <div align="center">
   <img src="git-images/banner.png" alt="Brim Banner" width="100%" />
 
-  # Brim — AI-Powered Browser IDE
+  # Brim - AI-Powered Browser IDE
   
-  **Real-time collaborative code editing, AI-powered suggestions, and in-browser execution.**
+  Real-time collaborative code editing, AI-powered suggestions, in-browser execution, and seamless GitHub integration.
 </div>
 
----
 
-Brim is a next-generation, browser-based IDE designed to supercharge your development workflow. It combines real-time collaborative editing, an intelligent AI conversation assistant, seamless in-browser code execution via WebContainers, and native GitHub import/export integrations.
+Brim is a next-generation, browser-based IDE designed to supercharge your development workflow. It combines real-time collaborative editing, an intelligent AI conversation assistant, seamless in-browser code execution via WebContainers, and robust native GitHub import/export capabilities.
 
 <div align="center">
   <img src="git-images/hero.png" alt="Brim Hero Interface" width="100%" />
@@ -16,11 +15,11 @@ Brim is a next-generation, browser-based IDE designed to supercharge your develo
 
 ## ✨ Key Features
 
+* **GitHub Import & Export:** Instantly pull existing repositories directly into the browser and export your edits back to GitHub.
 * **Real-time Collaboration:** Code together seamlessly with instant updates.
 * **AI-Powered Code Suggestions:** Ghost text autocomplete and quick-edit capabilities (`Cmd+K`).
 * **Conversational AI Assistant:** Built-in sidebar for contextual help, debugging, and generation.
 * **In-Browser Execution:** Run your code entirely in the browser using WebContainer API.
-* **GitHub Integration:** Effortlessly import and export your repositories.
 * **Multi-file Management:** VSCode-style project management with tabs, folders, and icons.
 
 ## 🛠 Tech Stack
@@ -39,6 +38,11 @@ Brim is a next-generation, browser-based IDE designed to supercharge your develo
 <div align="center">
   <img src="git-images/editor.png" alt="Brim Editor Interface" width="100%" />
 </div>
+
+### Version Control & GitHub Integration
+* **1-Click Import:** Clone public or private GitHub repositories directly into your Brim workspace.
+* **Seamless Export:** Push your project updates and newly created files back to GitHub without leaving the browser. 
+* **Branch Management:** *[Optional/Planned: Mention if applicable]* Easy syncing with your codebase version history.
 
 ### Intelligent AI
 * **Ghost Text:** Real-time, context-aware code completions as you type.
@@ -134,7 +138,7 @@ npm run dev
 ```
 
 
-5. **Open Brim:** Navigate to [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000) in your browser.
+5. **Open Brim:** Navigate to [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
@@ -181,3 +185,8 @@ This project stands on the shoulders of incredible tools and inspiring products:
 * [shadcn/ui](https://ui.shadcn.com) - For the beautiful, accessible UI components.
 * [CodeMirror](https://codemirror.net) - For the robust code editor framework.
 
+---
+
+<p align="center">
+Made with <3 by Rama
+</p>
