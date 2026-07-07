@@ -78,7 +78,7 @@ export const verifyAuth = async (ctx: QueryCtx | MutationCtx) => {
 
   if (!identity) {
     throw new Error("Unauthorized");
-  }
+  } 
 
   return identity;
 };
